@@ -63,6 +63,7 @@ int lastButtonState = LOW;
 // BCD calculation variables
 uint8_t BCD_var_1 = 0;
 uint8_t BCD_var_2 = 0;
+uint8_t BCD_var_3 = 0;
 
 uint8_t BCD_0to59(uint8_t & source) {
   if (source > 9) {
@@ -80,13 +81,15 @@ uint8_t BCD_0to12(uint8_t & source) {
   if (source > 9) {
     BCD_var_2 = 0;
     BCD_var_1 = source / 10;
+    BCD_var_3 = BCD_var_1 * 10;
     BCD_var_1 = BCD_var_1 << 4;
     if (source > 11) {
       BCD_var_2 = 1;
       BCD_var_2 = BCD_var_2 << 7;
     }
-    BCD_var_1 = (BCD_var_1 | BCD_var_2)
-    
+    BCD_var_1 = BCD_var_1 | BCD_var_2;
+    BCD_var_3 = source - BCD_var_3;
+    return (BCD_var_1 | BCD_var_3);
   } else {
     return source; 
   }
