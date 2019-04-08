@@ -1,0 +1,18 @@
+Pin 1: Reset Button
+Pin 4:  Pot 1, SWITCH
+Pin 5:  Pot 1, CLOCK 
+Pin 6:  Pot 1, DATA 
+Pin 7:  VCC
+Pin 8:  GROUND
+Pin 11: Test LED
+Pin 12: Pot 2, CLOCK
+Pin 13: Pot 2, DATA
+Pin 14: Pot 2, SWITCH
+Pin 16: Register #1 Data
+Pin 17: Register #1 Latch (Shared)
+Pin 18: Register #1 Clock (Shared)
+Pin 20: AVCC
+Pin 22: GROUND
+Pin 26: Alarm Toggle Button
+Pin 27: Clock SDA
+Pin 28: Clock SCL
