@@ -47,6 +47,8 @@ byte ALM_hours = 0;
 byte ALM_minutes = 0;
 int ALM_hours_ADDR = 512;
 int ALM_minutes_ADDR = 513;
+uint8_t BCD_minutes = 0;
+uint8_t BCD_seconds = 0;
 // N/A Clock.getHours boolean values
 bool h12 = false;
 bool pm = false;
@@ -58,6 +60,37 @@ unsigned long debounceDelay = 100;
 uint8_t ALM_enabled = 0;
 int buttonState;
 int lastButtonState = LOW;
+// BCD calculation variables
+uint8_t BCD_var_1 = 0;
+uint8_t BCD_var_2 = 0;
+
+uint8_t BCD_0to59(uint8_t & source) {
+  if (source > 9) {
+    BCD_var_1 = source / 10;
+    BCD_var_2 = BCD_var_1 * 10;
+    BCD_var_2 = source - BCD_var_2;
+    BCD_var_1 = BCD_var_1 << 4;
+    return (BCD_var_1 | BCD_var_2);
+  } else {
+    return source;
+  }
+}
+
+uint8_t BCD_0to12(uint8_t & source) {
+  if (source > 9) {
+    BCD_var_2 = 0;
+    BCD_var_1 = source / 10;
+    BCD_var_1 = BCD_var_1 << 4;
+    if (source > 11) {
+      BCD_var_2 = 1;
+      BCD_var_2 = BCD_var_2 << 7;
+    }
+    BCD_var_1 = (BCD_var_1 | BCD_var_2)
+    
+  } else {
+    return source; 
+  }
+}
 
 void outputREG(byte & Hours, byte & Minutes, byte & Seconds) {
   for (int i = 0; i < 8; i++) {
