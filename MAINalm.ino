@@ -1,312 +1,152 @@
-#include <EEPROM.h>
-#include <DS3231.h>
-#include <Wire.h>
-DS3231 Clock;
-
-//// Define constants
-// Potentiometer 1 for time
-const uint8_t POT_1_SW = 4;
-const uint8_t POT_1_CLK = 5;
-const uint8_t POT_1_DAT = 6;
-// Potentiometer 2 for alarm
-const uint8_t POT_2_SW = 14;
-const uint8_t POT_2_CLK = 12;
-const uint8_t POT_2_DAT = 13;
-// Test LED
-const uint8_t LED_1 = 11;
-const uint8_t REG_DATA = 16;
-const uint8_t REG_LATCH = 17;
-const uint8_t REG_CLOCK = 18;
-const uint8_t ALM_TGL = 26;
-const uint8_t CLK_SDA = 27;
-const uint8_t CLK_SCL = 28;
-// Potentiometer variables
-unsigned long pot_debouncetime = 0;
-unsigned long pot_debouncedelay = 0.01;
-int pot_previousCLK;   
-int pot_previousDAT;
-int pot2_previousCLK;   
-int pot2_previousDAT;
-// Variable for outputting bits
-int bitSet = 0;
-bool CLKset = false;
-bool ALMset = false;
-// N/A Clock values
-byte Year = 2001;
-byte Month = 8;
-byte Date = 23;
-byte DoW = 1;
-// Program clock values
-uint8_t MAIN_hours = 0;
-uint8_t MAIN_minutes = 0;
-uint8_t MAIN_seconds = 0;
-uint8_t CLK_hours = 0;
-uint8_t CLK_minutes = 0;
-uint8_t CLK_seconds = 0;
-byte ALM_hours = 0;
-byte ALM_minutes = 0;
-int ALM_hours_ADDR = 512;
-int ALM_minutes_ADDR = 513;
-uint8_t BCD_minutes = 0;
-uint8_t BCD_seconds = 0;
-// N/A Clock.getHours boolean values
-bool h12 = false;
-bool pm = false;
-// N/A 0 int value
-byte SECONDS_0 = 0;
-// Alarm enable, debouncing
-unsigned long lastDebounceTime = 0;
-unsigned long debounceDelay = 100;
-uint8_t ALM_enabled = 0;
-int buttonState;
-int lastButtonState = LOW;
-// BCD calculation variables
-uint8_t BCD_var_1 = 0;
-uint8_t BCD_var_2 = 0;
-uint8_t BCD_var_3 = 0;
-
-uint8_t BCD_0to59(uint8_t & source) {
-  if (source > 9) {
-    BCD_var_1 = source / 10;
-    BCD_var_2 = BCD_var_1 * 10;
-    BCD_var_2 = source - BCD_var_2;
-    BCD_var_1 = BCD_var_1 << 4;
-    return (BCD_var_1 | BCD_var_2);
-  } else {
-    return source;
-  }
-}
-
-uint8_t BCD_0to12(uint8_t & source) {
-  if (source > 9) {
-    BCD_var_2 = 0;
-    BCD_var_1 = source / 10;
-    BCD_var_3 = BCD_var_1 * 10;
-    BCD_var_1 = BCD_var_1 << 4;
-    if (source > 11) {
-      BCD_var_2 = 1;
-      BCD_var_2 = BCD_var_2 << 7;
-    }
-    BCD_var_1 = BCD_var_1 | BCD_var_2;
-    BCD_var_3 = source - BCD_var_3;
-    return (BCD_var_1 | BCD_var_3);
-  } else {
-    return source; 
-  }
-}
-
-void outputREG(byte & Hours, byte & Minutes, byte & Seconds) {
-  for (int i = 0; i < 8; i++) {
-     bitSet = Seconds & (1 << i);
-     if (bitSet = 0) {
-      digitalWrite(REG_DATA, LOW);
-     } else {
-      digitalWrite(REG_DATA, HIGH);
-     }
-     digitalWrite(REG_CLOCK, HIGH);
-  } 
-
-  for (int i = 0; i < 8; i++) {
-     bitSet = Minutes & (1 << i);
-     if (bitSet = 0) {
-      digitalWrite(REG_DATA, LOW);
-     } else {
-      digitalWrite(REG_DATA, HIGH);
-     }
-     digitalWrite(REG_CLOCK, HIGH);
-  } 
-
-  for (int i = 0; i < 8; i++) {
-     bitSet = Hours & (1 << i);
-     if (bitSet = 0) {
-      digitalWrite(REG_DATA, LOW);
-     } else {
-      digitalWrite(REG_DATA, HIGH);
-     }
-     digitalWrite(REG_CLOCK, HIGH);
-  } 
-  digitalWrite(REG_LATCH, HIGH);
-}
-
-bool check_rotary(const uint8_t * pin_clock, const uint8_t * pin_data) {
-  if ((pot_previousCLK == 0) && (pot_previousDAT == 1)) {
-    if ((digitalRead(*pin_clock) == 1) && (digitalRead(*pin_data) == 0)) {
-      return true;
-    }
-    if ((digitalRead(*pin_clock) == 1) && (digitalRead(*pin_data) == 1)) {
-      return false;
-    }
-  }
-
-  if ((pot_previousCLK == 1) && (pot_previousDAT == 0)) {
-    if ((digitalRead(*pin_clock) == 0) && (digitalRead(*pin_data) == 1)) {
-      return true;
-    }
-    if ((digitalRead(*pin_clock) == 0) && (digitalRead(*pin_data) == 0)) {
-      return false;
-    }
-  }
-
-  if ((pot_previousCLK == 1) && (pot_previousDAT == 1)) {
-    if ((digitalRead(*pin_clock) == 0) && (digitalRead(*pin_data) == 1)) {
-      return true;
-    }
-    if ((digitalRead(*pin_clock) == 0) && (digitalRead(*pin_data) == 0)) {
-      return false;
-    }
-  }  
-
-  if ((pot_previousCLK == 0) && (pot_previousDAT == 0)) {
-    if ((digitalRead(*pin_clock) == 1) && (digitalRead(*pin_data) == 0)) {
-      return true;
-    }
-    if ((digitalRead(*pin_clock) == 1) && (digitalRead(*pin_data) == 1)) {
-      return false;
-    }
-  }            
-}
+// Set pinout constants
+const uint8_t register_data = 7;
+const uint8_t register_clock = 5;
+const uint8_t register_latch = 6;
+const uint8_t pin_alarm_buzzer = 3;
+const uint8_t pin_interrupt_1 = 2;
+const uint8_t pin_alarm_switch = 11;
+const uint8_t pin_pot_1_switch = 10;
+const uint8_t pin_pot_2_switch = 9;
+const uint8_t pin_pot_1_clock = 4; // INVALID
+const uint8_t pin_pot_1_data = 4;
+const uint8_t pin_pot_2_clock = 4;
+const uint8_t pin_pot_2_data = 4;
+// Set potentiometer variables
+uint8_t pot_1_prev_clock = 0;
+uint8_t pot_1_prev_data = 0;
+uint8_t pot_2_prev_clock = 0;
+uint8_t pot_2_prev_data = 0;
+long debounce_time = 0;
+int debounce_delay = 0.01;
+// Variable that toggles the alarm
+volatile byte alarm_enabled_var = 0;
+volatile byte pot_1_enabled_var = 0;
+volatile byte pot_2_enabled_var = 0;
+uint8_t alarm_timer = 0;
+// Time variables
+uint8_t time_main_seconds,time_main_minutes,time_main_hours;
+uint8_t time_alarm_seconds,time_alarm_minutes,time_alarm_hours;
+uint8_t time_clock_seconds,time_clock_minutes,time_clock_hours;
+// Null / Zero variables for functions
+uint8_t var_zero = 0;
+// Prototype functions
+static void register_output(uint8_t & source);
+static void isr();
+static void alarm_trigger();
 
 void setup() {
-  pinMode(LED_1, OUTPUT);
-  pinMode(REG_DATA, OUTPUT);
-  pinMode(REG_LATCH, OUTPUT);
-  pinMode(REG_CLOCK, OUTPUT);
-  pinMode(POT_1_SW, INPUT_PULLUP);
-  pinMode(POT_1_CLK, INPUT);
-  pinMode(POT_1_DAT, INPUT);
-  pinMode(POT_2_SW, INPUT_PULLUP);
-  pinMode(POT_2_CLK, INPUT);
-  pinMode(POT_2_DAT, INPUT);
-  pinMode(ALM_TGL, INPUT_PULLUP);
-  Wire.begin();
-  pot_previousCLK=digitalRead(POT_1_CLK);
-  pot_previousDAT=digitalRead(POT_1_DAT);
-  pot2_previousCLK=digitalRead(POT_2_CLK);
-  pot2_previousDAT=digitalRead(POT_2_DAT);
-  digitalWrite(LED_1, HIGH);
-  delay(2000);
-  digitalWrite(LED_1, LOW);
-  MAIN_hours = Clock.getHour(h12, pm); // 24 Hour clock
-  MAIN_minutes = Clock.getMinute();
-  MAIN_seconds = Clock.getSecond();
-  CLK_hours = MAIN_hours;
-  CLK_minutes = MAIN_minutes;
-  ALM_hours = EEPROM.read(ALM_hours_ADDR);
-  ALM_minutes = EEPROM.read(ALM_minutes_ADDR);
+  pinMode(pin_alarm_switch, INPUT_PULLUP);
+  pinMode(pin_pot_1_switch, INPUT_PULLUP);
+  pinMode(pin_pot_2_switch, INPUT_PULLUP);
+  pinMode(pin_interrupt_1, INPUT_PULLUP);
+  pinMode(pin_pot_1_clock, INPUT);
+  pinMode(pin_pot_1_data, INPUT);
+  pinMode(pin_pot_2_clock, INPUT);
+  pinMode(pin_pot_2_data, INPUT);
+  pinMode(register_clock, OUTPUT);
+  pinMode(register_data, OUTPUT);
+  pinMode(register_latch, OUTPUT);
+  pinMode(pin_alarm_buzzer, OUTPUT);
+  uint8_t pot_1_prev_clock = digitalRead(pin_pot_1_clock);
+  uint8_t pot_1_prev_data = digitalRead(pin_pot_1_data);
+  uint8_t pot_2_prev_clock = digitalRead(pin_pot_2_clock);
+  uint8_t pot_2_prev_data = digitalRead(pin_pot_2_data);
+  attachInterrupt(0, isr, FALLING);
 }
 
 void loop() {
-  while (digitalRead(POT_1_SW) == LOW) {
-    if ((millis() - pot_debouncetime) > pot_debouncedelay) {
-      if (check_rotary(&POT_1_CLK, &POT_1_DAT) == true) {
-        // Potentiometer was increased
-        if (CLK_minutes = 59) {
-          CLK_minutes = 0;
-          if (CLK_hours = 23) {
-            CLK_hours = 0;
-          } else {
-            CLK_hours++;
-          }
-        } else {
-          CLK_minutes++;
-        }
-        outputREG(CLK_hours, CLK_minutes, SECONDS_0);
-        CLKset = true;
-      } else {
-        // Potentiometer was decreased
-        if (CLK_minutes = 0) {
-          CLK_minutes = 59;
-          if (CLK_hours = 0) {
-            CLK_hours = 23;
-          } else {
-            CLK_hours--;
-          }
-        } else {
-          CLK_minutes--;
-        }
-        outputREG(CLK_hours, CLK_minutes, SECONDS_0);
-        CLKset = true;
-      }
-      
-      pot_previousCLK=digitalRead(POT_1_CLK);
-      pot_previousDAT=digitalRead(POT_1_DAT);
-      pot_debouncetime=millis();  // Set variable to current millis() timer
-    }
+  if (time_main_minutes == time_alarm_minutes && time_main_hours == time_alarm_hours) {
+    alarm_timer = 1;
   }
-  if (CLKset == true) {
-    Clock.setClockMode(false);
-    Clock.setHour(CLK_hours);
-    Clock.setMinute(CLK_minutes);
-    Clock.setSecond(0);
-    MAIN_hours = CLK_hours;
-    MAIN_minutes = CLK_minutes;
-    MAIN_seconds = CLK_seconds;
+  while (!(alarm_enabled_var == 0) && alarm_timer < 250 && !(alarm_timer == 0)) {
+    alarm_trigger();
+    alarm_timer++;
   }
-  
-  while (digitalRead(POT_2_SW) == LOW) {
-    if ((millis() - pot_debouncetime) > pot_debouncedelay) {
-      if (check_rotary(&POT_2_CLK, &POT_2_DAT) == true) {
-        // Potentiometer was increased
-        if (ALM_minutes = 59) {
-          ALM_minutes = 0;
-          if (ALM_hours = 23) {
-            ALM_hours = 0;
-          } else {
-            ALM_hours++;
-          }
-        } else {
-          ALM_minutes++;
-        }
-        outputREG(ALM_hours, ALM_minutes, SECONDS_0);
-        ALMset = true;
-      } else {
-        // Potentiometer was decreased
-        if (ALM_minutes = 0) {
-          ALM_minutes = 59;
-          if (ALM_hours = 0) {
-            ALM_hours = 23;
-          } else {
-            ALM_hours--;
-          }
-        } else {
-          ALM_minutes--;
-        }
-        outputREG(ALM_hours, ALM_minutes, SECONDS_0);
-        ALMset = true;
-      }
-      
-      pot_previousCLK=digitalRead(POT_2_CLK);
-      pot_previousDAT=digitalRead(POT_2_DAT);
-      pot_debouncetime=millis();  // Set variable to current millis() timer
-    }
+  alarm_timer = 0;
+    
+  while (!pot_1_enabled_var == 0) {
+  	 if ((millis() - debounce_time) > debounce_delay) {
+       check_rotary(pin_pot_1_data, pin_pot_1_clock, pot_1_prev_clock, pot_1_prev_data);
+       pot_1_prev_clock=digitalRead(pin_pot_1_clock);
+       pot_1_prev_data=digitalRead(pin_pot_1_data);
+       debounce_time=millis();
+  	 }
   }
-  if (ALMset == true) {
-    EEPROM.write(ALM_hours_ADDR, ALM_hours);
-    EEPROM.write(ALM_minutes_ADDR, ALM_minutes);
+  while (!pot_2_enabled_var == 0) {
+  	 if ((millis() - debounce_time) > debounce_delay) {
+       check_rotary(pin_pot_2_data, pin_pot_2_clock, pot_2_prev_clock, pot_2_prev_data);
+       pot_2_prev_clock=digitalRead(pin_pot_2_clock);
+       pot_2_prev_data=digitalRead(pin_pot_2_data);
+       debounce_time=millis();
+  	 }
   }
+  register_output(time_main_seconds),register_output(time_main_minutes),register_output(time_main_hours);
+}
 
-  if ((ALM_enabled = 0) && (MAIN_hours = ALM_hours) && (MAIN_minutes = ALM_minutes)) {
-    digitalWrite(LED_1, HIGH);
-  } else {
-    digitalWrite(LED_1, LOW);
+static void register_output(uint8_t & source) {
+  digitalWrite(register_latch, LOW);
+  for (int i = 0; i <= 7; i++) {
+     digitalWrite(register_clock, LOW);
+     digitalWrite(register_data, bitRead(source,i));
+     digitalWrite(register_clock, HIGH);
   }
+  digitalWrite(register_latch, HIGH);
+}
 
-  int reading = digitalRead(ALM_TGL);
-  if (reading != lastButtonState) {
-    lastDebounceTime = millis();
+static void alarm_trigger() {
+    register_output(time_alarm_seconds);
+    register_output(time_alarm_minutes);
+    register_output(time_alarm_hours);
+    digitalWrite(pin_alarm_buzzer, HIGH);
+    delay(300);
+    register_output(var_zero);
+    register_output(var_zero);
+    register_output(var_zero);
+    digitalWrite(pin_alarm_buzzer, LOW);
+    delay(300);
+}
+
+static void isr() {
+  if (digitalRead(pin_alarm_switch) == LOW) {
+  	alarm_enabled_var = !alarm_enabled_var;
+  } else if (digitalRead(pin_pot_1_switch) == LOW) {
+  	pot_1_enabled_var = !pot_1_enabled_var;
+  } else if (digitalRead(pin_pot_2_switch) == LOW) {
+  	pot_2_enabled_var = !pot_2_enabled_var;
   }
-  if ((millis() - lastDebounceTime) > debounceDelay) {
-    if (reading != buttonState) {
-      buttonState = reading;
-      if (buttonState == HIGH) {
-        ALM_enabled = ~ALM_enabled;
-      }
+}
+
+static uint8_t check_rotary(const uint8_t & pin_data, const uint8_t & pin_clock, uint8_t & previous_clock, uint8_t previous_data) {
+  if ((previous_clock == 0) && (previous_data == 1)) {
+    if ((digitalRead(pin_clock) == 1) && (digitalRead(pin_data) == 0)) {
+      return 1;
+    }
+    if ((digitalRead(pin_clock) == 1) && (digitalRead(pin_data) == 1)) {
+      return 0;
     }
   }
-  
-  MAIN_hours = Clock.getHour(h12, pm);
-  MAIN_minutes = Clock.getMinute();
-  MAIN_seconds = Clock.getSecond();
-  
-  outputREG(MAIN_hours, MAIN_minutes, MAIN_seconds);
+  if ((previous_clock == 1) && (previous_data == 0)) {
+    if ((digitalRead(pin_clock) == 0) && (digitalRead(pin_data) == 1)) {
+      return 1;
+    }
+    if ((digitalRead(pin_clock) == 0) && (digitalRead(pin_data) == 0)) {
+      return 0;
+    }
+  }
+  if ((previous_clock == 1) && (previous_data == 1)) {
+    if ((digitalRead(pin_clock) == 0) && (digitalRead(pin_data) == 1)) {
+      return 1;
+    }
+    if ((digitalRead(pin_clock) == 0) && (digitalRead(pin_data) == 0)) {
+      return 0;
+    }
+  }  
+  if ((previous_clock == 0) && (previous_data == 0)) {
+    if ((digitalRead(pin_clock) == 1) && (digitalRead(pin_data) == 0)) {
+      return 1;
+    }
+    if ((digitalRead(pin_clock) == 1) && (digitalRead(pin_data) == 1)) {
+      return 0;
+    }
+  }            
 }
