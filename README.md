@@ -1,8 +1,8 @@
 # Alarm328
 
-Repository for my BCD alarm clock, including BreadBoard Schematics, PCB Gerber files, and the code for the ATmega328P.
+Repository for my BCD alarm clock, including BreadBoard Schematics, my own custom PCB Gerber files, and the code for the ATmega328P.
 
-My parts list (will not always be the same):
+Rough parts list:
 
 * 1x ATmega328P
 * ~24x 3V 5mm LEDs
@@ -14,3 +14,7 @@ My parts list (will not always be the same):
 * 1x 10k Ohm Resistor
 * 2x ~1uF Capacitors for switch debouncing
 * Many PCB Headers
+
+As you can see below, the project is essentially finished (except for the hours output / LEDs & resistors). I've got it working, however I don't have the time to design a proper / aesthetic enclosure for the clock, so it remains in this semi unfinished state, though it certainly fulfilled its purpose in teaching me the basics of PCB / electronics design. 
+
+![Photo of finished PCB](https://github.com/ajmar/Alarm328/blob/master/IMG_20191025_233843.jpg)
